@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<plugin id="uk.org.dsf.cordova.media" version="1.0.0" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
+    <name>mediacentre</name>
+    <js-module name="mediacentre" src="www/mediacentre.js"><clobbers target="cordova.plugins.mediacentre"/></js-module>
+    <platform name="android">
+        <config-file parent="/*" target="res/xml/config.xml">
+            <feature name="mediacentre">
+                <param name="android-package" value="uk.org.dsf.cordova.media.MediaCentre"/>
+            </feature>
+        </config-file>
+        <config-file parent="/*" target="AndroidManifest.xml">
+            <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+            <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+        </config-file>
+
+        <source-file src="src/android/MediaCentre.java" target-dir="src/uk/org/dsf/cordova/media/mediacentre"/>
+        <source-file src="src/android/PlayerManager.java" target-dir="src/uk/org/dsf/cordova/media/mediacentre"/>
+    </platform>
+</plugin>
