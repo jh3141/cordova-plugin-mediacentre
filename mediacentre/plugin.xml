@@ -16,4 +16,20 @@
         <source-file src="src/android/MediaCentre.java" target-dir="src/uk/org/dsf/cordova/media/mediacentre"/>
         <source-file src="src/android/PlayerManager.java" target-dir="src/uk/org/dsf/cordova/media/mediacentre"/>
     </platform>
+
+    <platform name="ios">
+        <config-file target="config.xml" parent="/*">
+            <feature name="mediacentre">
+                <param name="ios-package" value="DSFMediaCentre" />
+            </feature>
+        </config-file>
+
+        <header-file src="src/ios/mediacentre-Bridging-Header.h" />
+        <source-file src="src/ios/MediaCentre.swift" />
+        <source-file src="src/ios/PlayerHandler.swift" />
+
+        <!-- generate a bridging header for the cordova framework -->
+        <dependency id="cordova-plugin-add-swift-support" version="1.6.1" />
+
+    </platform>
 </plugin>

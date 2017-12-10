@@ -1,3 +1,4 @@
 testapp/node_modules
 testapp/platforms
 testapp/plugins
+testapp/build.json
