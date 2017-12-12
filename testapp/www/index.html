@@ -8,6 +8,23 @@
     </head>
     <body>
         <div class="app">
+            Track: <select id="track">
+                <option value="1">Mellon Collie and the Infinite Sadness</option>
+                <option value="2">Tonight, Tonight</option>
+                <option value="3">Cherub Rock</option>
+                <option value="4">Where Boys Fear To Tread</option>
+                <option value="5">Rhinocerous</option>
+                <option value="6">Zero</option>
+                <option value="7">Fuck You</option>
+                <option value="8">Porcelina of the Vast Oceans / Rocket</option>
+                <option value="9">Thirty Three</option>
+                <option value="10">1979</option>
+                <option value="11">Bullet with Butterfly Wings</option>
+                <option value="12">Muzzle</option>
+                <option value="13">Disarm</option>
+                <option value="14">Thru the Eyes of Ruby</option>
+                <option value="15">Banter</option>
+            </select><br>
             Current status: <span id="status">(not started)</span><br>
             Duration: <span id="duration">?</span><br>
             Playback position: <span id="position"></span> (<span id="positionpercent">-</span>%)<br>
@@ -15,7 +32,9 @@
             <span id="error"></span><br><br>
             <button id="play">Play</button> <button id="pause">Pause</button>
             <button id="resume">Resume</button> <button id="stop">Stop</button><br>
-            <input type="number" id="seekTo"> <button id="seek">Seek</button>
+            <input type="number" id="seekTo"> <button id="seek">Seek</button><br>
+            <input type="number" id="rate"> <button id="setRate">Change rate</button><br>
+            <input type="checkbox" id="autoplay"> <label for="autoplay">Play automatically</label>
         </div>
 
         <script type="text/javascript" src="cordova.js"></script>
