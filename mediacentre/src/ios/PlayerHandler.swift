@@ -43,8 +43,8 @@ class DSFPlayerHandler : NSObject
         if let url = URL.init(string: forUrl) {
             player = AVPlayer(url: url)
             super.init()
-            player.addObserver(self, forKeyPath: #keyPath(player.status), options: [.initial,.new], context: nil)
-            player.addObserver(self, forKeyPath: #keyPath(player.rate), options: [.new], context: nil)
+            player.addObserver(self, forKeyPath: #keyPath(AVPlayer.status), options: [.initial,.new], context: nil)
+            player.addObserver(self, forKeyPath: #keyPath(AVPlayer.rate), options: [.new], context: nil)
             player.currentItem!.addObserver(self, forKeyPath: #keyPath(AVPlayerItem.duration), options: [.new], context: nil)
             player.automaticallyWaitsToMinimizeStalling = false
         }
@@ -56,15 +56,16 @@ class DSFPlayerHandler : NSObject
     }
     
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
-        os_log("KVO observing change on %@, status=%d, new=%d/%g",
+        os_log("KVO observing change on %@, status=%d, new=%d/%g/%g",
                (keyPath ?? "(nil)"),
                player.status.rawValue,
                (change?[.newKey] as? Int)             ?? -1,
+               (change?[.newKey] as? Float)           ?? Float.nan,
                (change?[.newKey] as? CMTime)?.seconds ?? Double.nan);
-        if keyPath == #keyPath(player.status) {
+        if keyPath == #keyPath(AVPlayer.status) {
             handlePlayerStatusChanged ()
         }
-        else if keyPath == #keyPath(player.rate) {
+        else if keyPath == #keyPath(AVPlayer.rate) {
             if player.rate == 0 { handlePlaybackStopped() }
             else if !playing { handlePlaybackStarted() }
         }
