@@ -14,21 +14,25 @@ WHT='\033[0m'
 # ... of course, we can't actually run the ios build under cygwin, but leaving this in here
 # for potential future use (?), as it does no actual harm at this point.
 
-case `/bin/uname -s` in
+UNAME=/bin/uname
+if [ -x /usr/bin/uname ]; then UNAME=/usr/bin/uname; fi
+case `$UNAME -s` in
     CYGWIN*)  NODEEXEC="cmd /c" ;;
     *)        NODEEXEC=""       ;;
 esac
 
 echo -e "${RED}Run on default ios device (executing scripts using '$NODEEXEC')..."
 
-if [ -d platforms/ios/cordova/plugins/uk.org.dsf.cordova.media ]; then
-    echo -e "${GRN}Plugman uninstall...${WHT}"
-    $NODEEXEC plugman uninstall --platform ios --project "platforms/ios" --plugin "uk.org.dsf.cordova.media" || exit 1
+if [ -d platforms/ios/Media\ Test/Plugins/uk.org.dsf.cordova.media ]; then
+    echo -e "${GRN}cordova plugin rm...${WHT}"
+    $NODEEXEC cordova plugin rm "uk.org.dsf.cordova.media" || exit 1
+    echo -e "${GRN}rm -rf node_modules/cordova-plugin-mediacentre...${WHT}"
+    rm -rf node_modules/cordova-plugin-mediacentre
     echo -e "${GRN}OK"
 fi
 
-echo -e "${GRN}Plugman install...${WHT}"
-$NODEEXEC plugman install --platform ios --project "platforms/ios" --plugin "../mediacentre" || exit 1
+echo -e "${GRN}cordova plugin add...${WHT}"
+$NODEEXEC cordova plugin add --force "../mediacentre" || exit 1
 echo -e "${GRN}OK"
 
 echo -e "${GRN}Build...${WHT}"

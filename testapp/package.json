@@ -12,11 +12,15 @@
     "dependencies": {
         "cordova-android": "^6.3.0",
         "cordova-ios": "^4.4.0",
-        "cordova-plugin-whitelist": "^1.3.3"
+        "cordova-plugin-add-swift-support": "^1.6.1",
+        "cordova-plugin-mediacentre": "file:///Users/andy/Desktop/cordova-plugin-mediacentre/mediacentre",
+        "cordova-plugin-whitelist": "^1.3.3",
+        "uk.org.dsf.cordova.media": "../mediacentre"
     },
     "cordova": {
         "plugins": {
-            "cordova-plugin-whitelist": {}
+            "cordova-plugin-whitelist": {},
+            "uk.org.dsf.cordova.media": {}
         },
         "platforms": [
             "android",
