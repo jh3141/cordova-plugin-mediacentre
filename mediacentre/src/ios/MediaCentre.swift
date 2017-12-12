@@ -48,25 +48,82 @@ class DSFMediaCentre : CDVPlugin
         self.commandDelegate!.send(result, callbackId: command.callbackId);
     }
     
+    func invokeOnPlayer (usingIdFrom command: CDVInvokedUrlCommand, operation : (DSFPlayerHandler) -> Void)
+    {
+        // FIXME handle argument errors
+        let id = UUID(uuidString: command.arguments[0] as! String)!;
+        let player = players[id]!;
+        operation (player);
+        sendOK (to: command);
+    }
+    func invokeOnPlayer (usingIdFrom command: CDVInvokedUrlCommand, doubleOperation : (DSFPlayerHandler, Double) -> Void)
+    {
+        os_log("double operation invoked, %@", command);
+        // FIXME handle argument errors
+        let id = UUID(uuidString: command.arguments[0] as! String)!;
+        let player = players[id]!;
+        let arg = command.arguments[1] as! Double;
+        doubleOperation (player, arg);
+        sendOK (to: command);
+    }
+
     @objc(play:)
     func play(command: CDVInvokedUrlCommand)
     {
-        let id = UUID(uuidString: command.arguments[0] as! String)!;
-        let player = players[id]!;
-        player.play();
-        sendOK (to: command);
+        invokeOnPlayer (usingIdFrom: command) {
+            player in player.play()
+        }
     }
-
+    
     @objc(pause:)
     func pause(command: CDVInvokedUrlCommand)
     {
-        let id = UUID(uuidString: command.arguments[0] as! String)!;
-        let player = players[id]!;
-        player.play();
-        sendOK (to: command);
+        invokeOnPlayer (usingIdFrom: command) {
+            player in player.pause()
+        }
     }
 
+    @objc(resume:)
+    func resume(command: CDVInvokedUrlCommand)
+    {
+        invokeOnPlayer (usingIdFrom: command) {
+            player in player.resume()
+        }
+    }
+
+    @objc(stop:)
+    func stop(command: CDVInvokedUrlCommand)
+    {
+        invokeOnPlayer (usingIdFrom: command) {
+            player in player.stop()
+        }
+    }
     
+    @objc(seek:)
+    func seek(command : CDVInvokedUrlCommand)
+    {
+        os_log("seek invoked")
+        invokeOnPlayer(usingIdFrom: command) {
+            player, target in player.seek(target)
+        }
+    }
+    
+    @objc(setRate:)
+    func setRate(command : CDVInvokedUrlCommand)
+    {
+        invokeOnPlayer(usingIdFrom: command) {
+            player, target in player.rate = Float(target)
+        }
+    }
+
+    @objc(setPositionUpdateFrequency:)
+    func setPositionUpdateFrequency(command : CDVInvokedUrlCommand)
+    {
+        invokeOnPlayer(usingIdFrom: command) {
+            player, target in player.positionUpdateFrequency = target
+        }
+    }
+
     func sendOK (to command: CDVInvokedUrlCommand)
     {
         self.commandDelegate!.send (
