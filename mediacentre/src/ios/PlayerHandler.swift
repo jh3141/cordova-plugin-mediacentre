@@ -37,7 +37,8 @@ class DSFPlayerHandler : NSObject
             return CMTime(seconds: positionUpdateFrequency, preferredTimescale: defaultTimescale)
         }
     }
-    
+    var pausing = false;
+
     init(forUrl: String, withMetadata: [String:String]) throws {
         os_log("DSFPlayerHandler.init forUrl: %@ (metadata contains %d entries)", forUrl, withMetadata.count);
         if let url = URL.init(string: forUrl) {
@@ -45,7 +46,9 @@ class DSFPlayerHandler : NSObject
             super.init()
             player.addObserver(self, forKeyPath: #keyPath(AVPlayer.status), options: [.initial,.new], context: nil)
             player.addObserver(self, forKeyPath: #keyPath(AVPlayer.rate), options: [.new], context: nil)
+            player.addObserver(self, forKeyPath: #keyPath(AVPlayer.timeControlStatus), options: [.new], context: nil)
             player.currentItem!.addObserver(self, forKeyPath: #keyPath(AVPlayerItem.duration), options: [.new], context: nil)
+            player.currentItem!.addObserver(self, forKeyPath: #keyPath(AVPlayerItem.loadedTimeRanges), options: [.new], context: nil)
             player.automaticallyWaitsToMinimizeStalling = false
         }
         else {
@@ -55,22 +58,34 @@ class DSFPlayerHandler : NSObject
         }
     }
     
-    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?)
+    {
         os_log("KVO observing change on %@, status=%d, new=%d/%g/%g",
                (keyPath ?? "(nil)"),
                player.status.rawValue,
                (change?[.newKey] as? Int)             ?? -1,
                (change?[.newKey] as? Float)           ?? Float.nan,
                (change?[.newKey] as? CMTime)?.seconds ?? Double.nan);
-        if keyPath == #keyPath(AVPlayer.status) {
+        if keyPath == #keyPath(AVPlayer.status)
+        {
             handlePlayerStatusChanged ()
         }
-        else if keyPath == #keyPath(AVPlayer.rate) {
+        else if keyPath == #keyPath(AVPlayer.rate)
+        {
             if player.rate == 0 { handlePlaybackStopped() }
             else if !playing { handlePlaybackStarted() }
         }
-        else if keyPath == #keyPath(AVPlayerItem.duration) {
+        else if keyPath == #keyPath(AVPlayer.timeControlStatus)
+        {
+            handleBufferingStatusChanged ()
+        }
+        else if keyPath == #keyPath(AVPlayerItem.duration)
+        {
             handleItemDurationChanged ()
+        }
+        else if keyPath == #keyPath(AVPlayerItem.loadedTimeRanges)
+        {
+            handleBufferedRangeChanged ()
         }
     }
     
@@ -90,7 +105,7 @@ class DSFPlayerHandler : NSObject
     }
     func handlePlaybackStopped ()
     {
-        sendValue(["paused"], toCallback: "playerStatus")
+        sendValue([pausing ? "paused" : "stopped"], toCallback: "playerStatus")
         playing = false;
     }
     func handlePlaybackStarted ()
@@ -107,7 +122,22 @@ class DSFPlayerHandler : NSObject
     {
         sendValue([player.currentItem!.duration.seconds], toCallback: "duration")
     }
-    
+    func handleBufferingStatusChanged ()
+    {
+        sendValue([player.timeControlStatus == .waitingToPlayAtSpecifiedRate], toCallback: "buffering")
+    }
+    func timeToPercent (_ timestamp:CMTime) -> Double
+    {
+        return (100 * timestamp.seconds) / player.currentItem!.duration.seconds
+    }
+    func handleBufferedRangeChanged ()
+    {
+        let item = player.currentItem!
+        let currentRange = item.loadedTimeRanges.filter {
+            val in val.timeRangeValue.containsTime(player.currentTime())
+        }.first
+        sendValue([(currentRange?.timeRangeValue.end).map(timeToPercent) ?? 0], toCallback: "buffer")
+    }
     func setHandler (_ handler: String, usingDelegate: CDVCommandDelegate, callbackId: String)
     {
         handlerDelegate = usingDelegate;
@@ -130,6 +160,7 @@ class DSFPlayerHandler : NSObject
     
     func pause ()
     {
+        pausing = true;
         player.pause()
     }
     
@@ -140,6 +171,7 @@ class DSFPlayerHandler : NSObject
     
     func stop ()
     {
+        pausing = false;
         player.pause(); // doesn't seem to be any way to actually stop it!
     }
     
