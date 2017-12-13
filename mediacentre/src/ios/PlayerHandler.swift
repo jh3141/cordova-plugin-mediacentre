@@ -20,6 +20,7 @@ class DSFPlayerHandler : NSObject
     };
     var prerolled = false;
     var playing = false;
+    var stopping = false;
     var timeObserver : Any?;
     var positionUpdateFrequency : Double = 0 {
         didSet {
@@ -31,6 +32,19 @@ class DSFPlayerHandler : NSObject
             }
         }
     }
+    var atEndOfItem : Bool {
+        get
+        {
+            if let item = player.currentItem
+            {
+                return item.forwardPlaybackEndTime.seconds < player.currentTime().seconds + 1
+            }
+            else
+            {
+                return false;
+            }
+        }
+    }
     let defaultTimescale : CMTimeScale = 1000;
     var updateFrequencyAsCMTime : CMTime {
         get {
@@ -38,7 +52,8 @@ class DSFPlayerHandler : NSObject
         }
     }
     var pausing = false;
-
+    var lastPlayerStatus = ""
+    
     init(forUrl: String, withMetadata: [String:String]) throws {
         os_log("DSFPlayerHandler.init forUrl: %@ (metadata contains %d entries)", forUrl, withMetadata.count);
         if let url = URL.init(string: forUrl) {
@@ -105,7 +120,9 @@ class DSFPlayerHandler : NSObject
     }
     func handlePlaybackStopped ()
     {
-        sendValue([pausing ? "paused" : "stopped"], toCallback: "playerStatus")
+        sendValue([stopping || atEndOfItem ? "stopped" : "paused"], toCallback: "playerStatus")
+        pausing = false;
+        stopping = false;
         playing = false;
     }
     func handlePlaybackStarted ()
@@ -116,6 +133,7 @@ class DSFPlayerHandler : NSObject
     
     func handlePlayerCurrentTimeChanged (_ timestamp : CMTime)
     {
+        if lastPlayerStatus != "playing", player.rate > 0 { sendValue(["playing"], toCallback: "playerStatus") }
         sendValue([timestamp.seconds], toCallback: "playbackPosition")
     }
     func handleItemDurationChanged ()
@@ -124,6 +142,7 @@ class DSFPlayerHandler : NSObject
     }
     func handleBufferingStatusChanged ()
     {
+        playing = player.timeControlStatus == .playing
         sendValue([player.timeControlStatus == .waitingToPlayAtSpecifiedRate], toCallback: "buffering")
     }
     func timeToPercent (_ timestamp:CMTime) -> Double
@@ -146,6 +165,11 @@ class DSFPlayerHandler : NSObject
     
     func sendValue (_ value: [Any], toCallback: String)
     {
+        if toCallback == "playerStatus", let val = value[0] as? String
+        {
+            lastPlayerStatus = val
+        }
+        
         if let commandId = handlerCommandIds[toCallback] {
             let result = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: value)!
             result.setKeepCallbackAs(true);
@@ -172,6 +196,7 @@ class DSFPlayerHandler : NSObject
     func stop ()
     {
         pausing = false;
+        stopping = true;
         player.pause(); // doesn't seem to be any way to actually stop it!
     }
     
@@ -179,5 +204,19 @@ class DSFPlayerHandler : NSObject
     {
         player.seek(to: CMTime(seconds: target, preferredTimescale: defaultTimescale))
     }
-    
+
+    func dispose ()
+    {
+        player.cancelPendingPrerolls()
+        if player.rate > 0 { player.pause() }
+        player.currentItem?.asset.cancelLoading()
+        player.removeObserver(self, forKeyPath: #keyPath(AVPlayer.status))
+        player.removeObserver(self, forKeyPath: #keyPath(AVPlayer.rate))
+        player.removeObserver(self, forKeyPath: #keyPath(AVPlayer.timeControlStatus))
+        player.currentItem!.removeObserver(self, forKeyPath: #keyPath(AVPlayerItem.duration))
+        player.currentItem!.removeObserver(self, forKeyPath: #keyPath(AVPlayerItem.loadedTimeRanges))
+        timeObserver.map(player.removeTimeObserver)
+        handlerDelegate = nil
+        handlerCommandIds.removeAll()
+    }
 }
