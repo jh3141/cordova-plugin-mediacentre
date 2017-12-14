@@ -53,10 +53,12 @@ class DSFPlayerHandler : NSObject
     }
     var pausing = false;
     var lastPlayerStatus = ""
-    
-    init(forUrl: String, withMetadata: [String:String]) throws {
-        os_log("DSFPlayerHandler.init forUrl: %@ (metadata contains %d entries)", forUrl, withMetadata.count);
-        if let url = URL.init(string: forUrl) {
+    let EAGER_READAHEAD = TimeInterval(300)
+    let LIMITED_READAHEAD = TimeInterval(100)
+    let DEFAULT_THROUGHPUT : Double = 900000
+    init(forUrl urlstr: String, withMetadata metadata: [String:Any]) throws {
+        os_log("DSFPlayerHandler.init forUrl: %@ (metadata contains %d entries)", urlstr, metadata.count);
+        if let url = URL.init(string: urlstr) {
             player = AVPlayer(url: url)
             super.init()
             player.addObserver(self, forKeyPath: #keyPath(AVPlayer.status), options: [.initial,.new], context: nil)
@@ -64,7 +66,12 @@ class DSFPlayerHandler : NSObject
             player.addObserver(self, forKeyPath: #keyPath(AVPlayer.timeControlStatus), options: [.new], context: nil)
             player.currentItem!.addObserver(self, forKeyPath: #keyPath(AVPlayerItem.duration), options: [.new], context: nil)
             player.currentItem!.addObserver(self, forKeyPath: #keyPath(AVPlayerItem.loadedTimeRanges), options: [.new], context: nil)
-            player.automaticallyWaitsToMinimizeStalling = false
+            player.automaticallyWaitsToMinimizeStalling = (metadata["minimizeStalling"] as? Bool) ?? false
+            let eagerStreaming = (metadata["eagerStreaming"] as? Bool) ?? true
+            player.currentItem?.canUseNetworkResourcesForLiveStreamingWhilePaused = eagerStreaming
+            let defaultBufferMax = eagerStreaming ? EAGER_READAHEAD : LIMITED_READAHEAD
+            player.currentItem?.preferredForwardBufferDuration = (metadata["maxBufferReadahead"] as? Double) ?? defaultBufferMax
+            player.currentItem?.preferredPeakBitRate = (metadata["maxNetworkThroughput"] as? Double) ?? DEFAULT_THROUGHPUT
         }
         else {
             throw NSError(domain: "DSFPlayerHandler", code: 100, userInfo: [
