@@ -56,8 +56,17 @@ class DSFPlayerHandler : NSObject
     let EAGER_READAHEAD = TimeInterval(300)
     let LIMITED_READAHEAD = TimeInterval(100)
     let DEFAULT_THROUGHPUT : Double = 900000
-    init(forUrl urlstr: String, withMetadata metadata: [String:Any]) throws {
+    init(forUrl urlstr: String, withMetadata metadata: [AnyHashable:Any]) throws {
         os_log("DSFPlayerHandler.init forUrl: %@ (metadata contains %d entries)", urlstr, metadata.count);
+        metadata.forEach {
+            arg in
+            let (key,value) = arg
+            os_log ("   ( ... %@ => %@/%d/%g)",
+                    (key as? String) ?? "(not a string)",
+                    (value as? String) ?? "nil",
+                    (value as? Int) ?? 0, (value as? Double) ?? 0.0)
+        }
+        
         if let url = URL.init(string: urlstr) {
             player = AVPlayer(url: url)
             super.init()

@@ -7,22 +7,37 @@ import os.log
 class DSFMediaCentre : CDVPlugin
 {
     var players : [UUID: DSFPlayerHandler]!;
+    var session : AVAudioSession!;
     
     override func pluginInitialize() {
         players = [:];
+        do {
+            session = AVAudioSession.sharedInstance()
+            do
+            {
+                try session.setCategory(AVAudioSessionCategoryPlayback,
+                                        mode: AVAudioSessionModeSpokenAudio,   // fixme how to change this at run time?
+                                        options: [])
+                try session.setActive(true)
+                
+            }
+            catch let error as NSError {
+                os_log ("Failed to set up audio session: %@", error.localizedDescription)
+            }
+        }
     }
     
     @objc(openPlayer:)
     func openPlayer (command: CDVInvokedUrlCommand)
     {
         let url = command.arguments[0] as! String;
-        let metadata = [String: String] ();
+        let metadata = (command.arguments[1] as! NSDictionary);
         let id = UUID();
-        os_log("openPlayer - registering new player %@ (%d players registered on entry)", id.uuidString, players.count);
-        DispatchQueue.global(qos: .userInitiated).async {
+        os_log("openPlayer - registering new player %@ (%d players registered on entry, %d metadata objects)", id.uuidString, players.count, metadata.count);
+        DispatchQueue.global(qos: .background).async {
             do
             {
-                let player = try DSFPlayerHandler(forUrl: url, withMetadata: metadata)
+                let player = try DSFPlayerHandler(forUrl: url, withMetadata: metadata as! [AnyHashable:Any])
                 DispatchQueue.main.async {
                     self.players[id] = player
                     self.commandDelegate!.send (
