@@ -18,6 +18,7 @@
 */
 package uk.org.dsf.cordova.media;
 
+import android.annotation.TargetApi;
 import android.media.AudioManager;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
@@ -85,6 +86,7 @@ public class PlayerManager implements OnBufferingUpdateListener, OnCompletionLis
         player.prepareAsync();
     }
 
+    @TargetApi(21)
     public AudioAttributes calculateAttributes (JSONObject metadata) throws JSONException
     {
         AudioAttributes.Builder attributeBuilder = new AudioAttributes.Builder ();
@@ -104,8 +106,8 @@ public class PlayerManager implements OnBufferingUpdateListener, OnCompletionLis
             attributeBuilder.setUsage(AudioAttributes.USAGE_NOTIFICATION);
         else if (usage.equals ("alarm"))
             attributeBuilder.setUsage(AudioAttributes.USAGE_ALARM);
-        else if (usage.equals ("assistance"))
-            attributeBuilder.setUsage(AudioAttributes.USAGE_ASSISTANT);
+        //else if (usage.equals ("assistance"))
+        //    attributeBuilder.setUsage(AudioAttributes.USAGE_ASSISTANT);
         return attributeBuilder.build ();
     }
 
@@ -194,7 +196,7 @@ public class PlayerManager implements OnBufferingUpdateListener, OnCompletionLis
             player.setPlaybackParams (this.player.getPlaybackParams().setSpeed((float)args.getDouble(1)));
         }
         else if (action.equals ("setPositionUpdateFrequency")) {
-            this.positionUpdateFrequency = args.getInt(1);
+            this.positionUpdateFrequency = (int)(args.getDouble(1) * 1000);
             if (this.positionUpdateThread != null) positionUpdateThread.interrupt ();
         }
         else if (action.equals ("setChainedPlayer")) {
@@ -335,20 +337,29 @@ public class PlayerManager implements OnBufferingUpdateListener, OnCompletionLis
             while (player != null)
             {
                 long iterationTimestamp = System.currentTimeMillis ();
-                boolean playing = player.isPlaying ();
-                if ((isStarting || isPaused) && playing) {
-                    sendNotification ("playerStatus", "playing");
-                    isStarting = false;
-                    isPaused = false;
-                } else if (isStopping && ! playing) {
-                    sendNotification ("playerStatus", "stopped");
-                    isPaused = false;
-                } else if (isPausing && ! playing) {
-                    sendNotification ("playerStatus", "paused");
-                    isPaused = true;
-                }
+                try {
+                    boolean playing = player.isPlaying ();
+                    if ((isStarting || isPaused) && playing) {
+                        sendNotification ("playerStatus", "playing");
+                        isStarting = false;
+                        isPaused = false;
+                    } else if (isStopping && ! playing) {
+                        sendNotification ("playerStatus", "stopped");
+                        isPaused = false;
+                    } else if (isPausing && ! playing) {
+                        sendNotification ("playerStatus", "paused");
+                        isPaused = true;
+                    }
 
-                if (!playing && !(isStarting || isPaused)) break;
+                    if (!playing && !(isStarting || isPaused)) break;
+                } catch (IllegalStateException e) {
+                    // can happen either before playback preparation is started or after
+                    // resources are released.
+                    if (! isStarting) {
+                        sendNotification ("playerStatus", "stopped");
+                        return;
+                    }
+                }
 
                 if (iterationTimestamp > lastPositionUpdateTime + positionUpdateFrequency)
                 {
