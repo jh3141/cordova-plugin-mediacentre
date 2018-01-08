@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<plugin id="uk.org.dsf.cordova.media" version="1.0.0" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
+<plugin id="cordova-plugin-mediacentre" version="1.1.0" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
     <name>mediacentre</name>
     <js-module name="mediacentre" src="www/mediacentre.js"><clobbers target="cordova.plugins.mediacentre"/></js-module>
     <platform name="android">

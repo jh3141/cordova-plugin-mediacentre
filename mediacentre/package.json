@@ -1,6 +1,6 @@
 {
     "name": "cordova-plugin-mediacentre",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "A new implementation of streaming audio playback for Cordova (iOS + Android), designed to use modern features of the underlying platform.",
     "scripts": {},
     "author": "Julian Hall <jh314159@googlemail.com>",
