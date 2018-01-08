@@ -19,7 +19,6 @@
 package uk.org.dsf.cordova.media;
 
 import android.annotation.TargetApi;
-import android.media.AudioManager;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnBufferingUpdateListener;
@@ -28,9 +27,13 @@ import android.media.MediaPlayer.OnErrorListener;
 import android.media.MediaPlayer.OnPreparedListener;
 import android.media.MediaPlayer.OnInfoListener;
 import android.media.MediaPlayer.OnSeekCompleteListener;
-import android.media.MediaRecorder;
-import android.os.Environment;
+import android.media.MediaTimestamp;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.HandlerThread;
+import android.os.Process;
+import android.util.Log;
 
 import org.apache.cordova.LOG;
 import org.apache.cordova.CallbackContext;
@@ -40,7 +43,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONArray;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -61,6 +63,21 @@ import java.util.UUID;
 public class PlayerManager implements OnBufferingUpdateListener, OnCompletionListener, OnPreparedListener, OnErrorListener, OnInfoListener, OnSeekCompleteListener {
 
     private static final String LOG_TAG = "PlayerManager";
+    private static Handler backgroundHandler = new Handler (Looper.getMainLooper()); // run on UI thread until our own thread is ready
+    private static HandlerThread sharedBackgroundThread =
+        new HandlerThread ("MediaCentre.SharedBackgroundThread",
+                           Process.THREAD_PRIORITY_DEFAULT + Process.THREAD_PRIORITY_LESS_FAVORABLE) {
+            {
+                setDaemon (true);
+                start ();
+            }
+
+            protected void onLooperPrepared ()
+            {
+                backgroundHandler = new Handler (getLooper());
+            }
+        };
+
     private HashMap<String,CallbackContext> handlers = new HashMap<String,CallbackContext> ();
     private MediaPlayer player = null;      // Audio player object
     private Thread positionUpdateThread;
@@ -71,19 +88,27 @@ public class PlayerManager implements OnBufferingUpdateListener, OnCompletionLis
     /**
      * Constructor.
      */
-    public PlayerManager(String url, JSONObject metadata) throws JSONException, IOException
+    public PlayerManager(final String url, final JSONObject metadata)
     {
-        player = new MediaPlayer();
-        player.setOnErrorListener(this);
-        player.setDataSource(url);
-        player.setOnBufferingUpdateListener(this);
-        player.setOnPreparedListener(this);
-        player.setOnCompletionListener(this);
-        player.setOnInfoListener(this);
-        player.setOnSeekCompleteListener (this);
-        if (Build.VERSION.SDK_INT >= 21 /* Android 5.0 */)
-            player.setAudioAttributes(calculateAttributes (metadata));
-        player.prepareAsync();
+        backgroundHandler.post (new Runnable() {
+            public void run () {
+                try {
+                    player = new MediaPlayer();
+                    player.setOnErrorListener(PlayerManager.this);
+                    player.setDataSource(url);
+                    player.setOnBufferingUpdateListener(PlayerManager.this);
+                    player.setOnPreparedListener(PlayerManager.this);
+                    player.setOnCompletionListener(PlayerManager.this);
+                    player.setOnInfoListener(PlayerManager.this);
+                    player.setOnSeekCompleteListener (PlayerManager.this);
+                    if (Build.VERSION.SDK_INT >= 21 /* Android 5.0 */)
+                        player.setAudioAttributes(calculateAttributes (metadata));
+                    player.prepareAsync();
+                } catch (Exception e) {
+                    Log.e ("MediaCentre", "Error initializing media player: " + e.toString());
+                }
+            }
+        });
     }
 
     @TargetApi(21)
@@ -154,7 +179,8 @@ public class PlayerManager implements OnBufferingUpdateListener, OnCompletionLis
      * @param players  map of IDs to other player objects (for actions that reference other players)
      * @return true if the command was recognised, false otherwise.
      */
-    public boolean execute(String action, JSONArray args, CallbackContext callbackContext, Map<UUID,PlayerManager> players) throws JSONException {
+    @TargetApi(android.os.Build.VERSION_CODES.M)
+    public boolean execute(final String action, final JSONArray args, final CallbackContext callbackContext, final Map<UUID,PlayerManager> players) throws JSONException {
         /*
         actions that need to be handled are:
 
@@ -169,17 +195,25 @@ public class PlayerManager implements OnBufferingUpdateListener, OnCompletionLis
         */
 
         if (action.equals ("play")) {
-            sendNotification ("playerStatus", "starting");
-            player.start ();
-            prepareUpdateThread ();
+            backgroundHandler.post (new Runnable() {
+                public void run () {
+                    sendNotification ("playerStatus", "starting");
+                    player.start ();
+                    prepareUpdateThread ();
+                }
+            });
         }
         else if (action.equals ("pause")) {
             player.pause ();
             isPausing = true;
         }
         else if (action.equals ("resume")) {
-            player.start ();
-            isStarting = true;
+            backgroundHandler.post (new Runnable() {
+                public void run () {
+                    player.start ();
+                    isStarting = true;
+                }
+            });
         }
         else if (action.equals ("stop")) {
             player.stop ();
@@ -227,6 +261,7 @@ public class PlayerManager implements OnBufferingUpdateListener, OnCompletionLis
         lastPositionUpdateTime = System.currentTimeMillis();
         if (positionUpdateThread == null || !positionUpdateThread.isAlive()) {
             positionUpdateThread = new Thread (positionUpdater);
+            positionUpdateThread.setPriority(Thread.MIN_PRIORITY);
             positionUpdateThread.start ();
         }
     }
@@ -329,7 +364,8 @@ public class PlayerManager implements OnBufferingUpdateListener, OnCompletionLis
     public void sendPositionUpdateNow ()
     {
         lastPositionUpdateTime = System.currentTimeMillis ();
-        sendNotification ("playbackPosition", player.getTimestamp().getAnchorMediaTimeUs() / 1000000.0);
+        int timestamp = player.getCurrentPosition();
+        sendNotification ("playbackPosition", timestamp / 1000.0);
     }
 
     private Runnable positionUpdater = new Runnable () {
@@ -351,7 +387,7 @@ public class PlayerManager implements OnBufferingUpdateListener, OnCompletionLis
                         isPaused = true;
                     }
 
-                    if (!playing && !(isStarting || isPaused)) break;
+                    if (!playing && !(isStarting || isPaused)) return;
                 } catch (IllegalStateException e) {
                     // can happen either before playback preparation is started or after
                     // resources are released.
