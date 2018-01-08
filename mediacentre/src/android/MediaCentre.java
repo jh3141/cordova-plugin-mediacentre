@@ -13,7 +13,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * This class echoes a string called from JavaScript.
+ * Media Centre API manager.  Most operations are delegated to PlayerManager objects,
+ * but as there can be many of those they're tracked here.
  */
 public class MediaCentre extends CordovaPlugin {
     private Map<UUID, PlayerManager> players = new HashMap<UUID, PlayerManager> ();
